@@ -15,12 +15,17 @@ import RegisterHobbiesScreen from './src/screens/RegisterHobbiesScreen';
 import RegisterKTPScreen from './src/screens/RegisterKTPScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import ProfileDetailScreen from './src/screens/ProfileDetailScreen';
+import PremiumScreen from './src/screens/PremiumScreen';
+import ChatListScreen from './src/screens/ChatListScreen';
+import ChatRoomScreen from './src/screens/ChatRoomScreen';
 
 // Types
 export type RootStackParamList = {
   Auth: undefined;
   Main: undefined;
   ProfileDetail: { profile?: any };
+  Premium: undefined;
+  ChatRoom: { chatId: string };
 };
 
 export type AuthStackParamList = {
@@ -49,14 +54,6 @@ function MatchesScreen() {
   return (
     <View style={styles.placeholder}>
       <Text style={styles.placeholderText}>Matches Screen</Text>
-    </View>
-  );
-}
-
-function MessagesScreen() {
-  return (
-    <View style={styles.placeholder}>
-      <Text style={styles.placeholderText}>Messages Screen</Text>
     </View>
   );
 }
@@ -220,12 +217,13 @@ function MainTabNavigator({ onNavigate }: { onNavigate: (screen: string, params?
 
       <MainTab.Screen
         name="Messages"
-        component={MessagesScreen}
         options={{
           tabBarLabel: 'Pesan',
           tabBarIcon: ({ color, size }) => <MessageCircle size={size} color={color} />,
         }}
-      />
+      >
+        {() => <ChatListScreen onChatPress={(chatId) => console.log('Chat pressed:', chatId)} />}
+      </MainTab.Screen>
 
       <MainTab.Screen
         name="Profile"
@@ -279,6 +277,31 @@ export default function App() {
                   onMessage={() => console.log('Message pressed')}
                   onBlock={() => console.log('Block pressed')}
                   onReport={() => console.log('Report pressed')}
+                />
+              )}
+            </RootStack.Screen>
+
+            <RootStack.Screen 
+              name="Premium" 
+              options={{ animation: 'slide_from_bottom' }}
+            >
+              {({ navigation }) => (
+                <PremiumScreen
+                  onBack={() => navigation.goBack()}
+                  hasBasicSubscription={false}
+                />
+              )}
+            </RootStack.Screen>
+
+            <RootStack.Screen 
+              name="ChatRoom" 
+              options={{ animation: 'slide_from_right', headerShown: false }}
+            >
+              {({ navigation, route }: any) => (
+                <ChatRoomScreen
+                  chatId={route.params?.chatId || '1'}
+                  onBack={() => navigation.goBack()}
+                  onViewProfile={() => console.log('View profile pressed')}
                 />
               )}
             </RootStack.Screen>
