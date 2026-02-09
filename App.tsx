@@ -3,7 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StatusBar } from 'expo-status-bar';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Alert } from 'react-native';
 import { Home, Heart, MessageCircle, User } from 'lucide-react-native';
 
 // Import Screens
@@ -18,6 +18,8 @@ import ProfileDetailScreen from './src/screens/ProfileDetailScreen';
 import PremiumScreen from './src/screens/PremiumScreen';
 import ChatListScreen from './src/screens/ChatListScreen';
 import ChatRoomScreen from './src/screens/ChatRoomScreen';
+import BlockListScreen from './src/screens/BlockListScreen';
+import ReferralScreen from './src/screens/ReferralScreen';
 
 // Types
 export type RootStackParamList = {
@@ -26,6 +28,8 @@ export type RootStackParamList = {
   ProfileDetail: { profile?: any };
   Premium: undefined;
   ChatRoom: { chatId: string };
+  BlockList: undefined;
+  Referral: undefined;
 };
 
 export type AuthStackParamList = {
@@ -302,6 +306,30 @@ export default function App() {
                   chatId={route.params?.chatId || '1'}
                   onBack={() => navigation.goBack()}
                   onViewProfile={() => console.log('View profile pressed')}
+                />
+              )}
+            </RootStack.Screen>
+
+            <RootStack.Screen 
+              name="BlockList" 
+              options={{ animation: 'slide_from_right', headerShown: false }}
+            >
+              {({ navigation }) => (
+                <BlockListScreen
+                  onBack={() => navigation.goBack()}
+                  onViewProfile={(userId) => console.log('View blocked profile:', userId)}
+                />
+              )}
+            </RootStack.Screen>
+
+            <RootStack.Screen 
+              name="Referral" 
+              options={{ animation: 'slide_from_right', headerShown: false }}
+            >
+              {({ navigation }) => (
+                <ReferralScreen
+                  onBack={() => navigation.goBack()}
+                  onWithdraw={() => Alert.alert('Withdraw', 'Proses penarikan...')}
                 />
               )}
             </RootStack.Screen>
