@@ -20,6 +20,8 @@ import ChatListScreen from './src/screens/ChatListScreen';
 import ChatRoomScreen from './src/screens/ChatRoomScreen';
 import BlockListScreen from './src/screens/BlockListScreen';
 import ReferralScreen from './src/screens/ReferralScreen';
+import BannerCMS from './src/screens/admin/BannerCMS';
+import SelfValueScreen from './src/screens/SelfValueScreen';
 
 // Types
 export type RootStackParamList = {
@@ -30,6 +32,8 @@ export type RootStackParamList = {
   ChatRoom: { chatId: string };
   BlockList: undefined;
   Referral: undefined;
+  BannerCMS: undefined;
+  SelfValue: undefined;
 };
 
 export type AuthStackParamList = {
@@ -330,6 +334,30 @@ export default function App() {
                 <ReferralScreen
                   onBack={() => navigation.goBack()}
                   onWithdraw={() => Alert.alert('Withdraw', 'Proses penarikan...')}
+                />
+              )}
+            </RootStack.Screen>
+
+            <RootStack.Screen 
+              name="BannerCMS" 
+              options={{ animation: 'slide_from_right', headerShown: false }}
+            >
+              {({ navigation }) => (
+                <BannerCMS
+                  onBack={() => navigation.goBack()}
+                />
+              )}
+            </RootStack.Screen>
+
+            <RootStack.Screen 
+              name="SelfValue" 
+              options={{ animation: 'slide_from_right', headerShown: false }}
+            >
+              {({ navigation }) => (
+                <SelfValueScreen
+                  onBack={() => navigation.goBack()}
+                  onBook={() => Alert.alert('Booking', 'Sesi berhasil dibooking!')}
+                  hasBasicSubscription={false}
                 />
               )}
             </RootStack.Screen>
