@@ -13,36 +13,45 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { ChevronRight, User, Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
+import { ChevronRight, ChevronLeft, User, Mail, Lock, Eye, EyeOff, Gift } from 'lucide-react-native';
+import { useAuth } from '../context/AuthContext';
 
 interface BasicInfoData {
   fullName: string;
   email: string;
   password: string;
   confirmPassword: string;
+  referralCode?: string;
 }
 
 interface Props {
-  onNext: (data: BasicInfoData) => void;
+  onNext: (data: BasicInfoData & { userId: string; generatedReferralCode: string }) => void;
+  onBack?: () => void;
 }
 
-export default function RegisterBasicInfoScreen({ onNext }: Props) {
+export default function RegisterBasicInfoScreen({ onNext, onBack }: Props) {
+  const { signUp } = useAuth();
+  
   const [formData, setFormData] = useState<BasicInfoData>({
     fullName: '',
     email: '',
     password: '',
     confirmPassword: '',
+    referralCode: '',
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState<Partial<BasicInfoData>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
 
   const validateForm = (): boolean => {
     const newErrors: Partial<BasicInfoData> = {};
 
     if (!formData.fullName.trim()) {
       newErrors.fullName = 'Nama lengkap wajib diisi';
+    } else if (formData.fullName.trim().length < 3) {
+      newErrors.fullName = 'Nama minimal 3 karakter';
     }
 
     if (!formData.email.trim()) {
@@ -69,10 +78,45 @@ export default function RegisterBasicInfoScreen({ onNext }: Props) {
     if (!validateForm()) return;
 
     setIsLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setIsLoading(false);
-    onNext(formData);
+    setApiError(null);
+
+    try {
+      // Call Supabase signUp
+      const result = await signUp(
+        formData.email.trim(),
+        formData.password,
+        formData.fullName.trim(),
+        formData.referralCode?.trim() || undefined
+      );
+
+      // Success - pass data to next step
+      onNext({
+        ...formData,
+        userId: result.userId,
+        generatedReferralCode: result.referralCode,
+      });
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      
+      // Handle specific error messages
+      let errorMessage = 'Gagal membuat akun. Silakan coba lagi.';
+      
+      if (error.message?.includes('already registered')) {
+        errorMessage = 'Email sudah terdaftar. Silakan gunakan email lain atau login.';
+      } else if (error.message?.includes('invalid email')) {
+        errorMessage = 'Format email tidak valid';
+      } else if (error.message?.includes('password')) {
+        errorMessage = 'Password terlalu lemah. Gunakan kombinasi huruf dan angka.';
+      } else if (error.message?.includes('rate limit')) {
+        errorMessage = 'Terlalu banyak percobaan. Coba lagi dalam beberapa menit.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setApiError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -86,6 +130,13 @@ export default function RegisterBasicInfoScreen({ onNext }: Props) {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
+          {/* Back Button */}
+          {onBack && (
+            <TouchableOpacity style={styles.backButton} onPress={onBack} disabled={isLoading}>
+              <ChevronLeft size={24} color="#374151" />
+            </TouchableOpacity>
+          )}
+
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.title}>Buat Akun</Text>
@@ -99,6 +150,13 @@ export default function RegisterBasicInfoScreen({ onNext }: Props) {
             </View>
             <Text style={styles.progressText}>16%</Text>
           </View>
+
+          {/* API Error */}
+          {apiError && (
+            <View style={styles.apiErrorContainer}>
+              <Text style={styles.apiErrorText}>{apiError}</Text>
+            </View>
+          )}
 
           {/* Form */}
           <View style={styles.form}>
@@ -114,8 +172,10 @@ export default function RegisterBasicInfoScreen({ onNext }: Props) {
                   onChangeText={(text) => {
                     setFormData({ ...formData, fullName: text });
                     if (errors.fullName) setErrors({ ...errors, fullName: undefined });
+                    setApiError(null);
                   }}
                   autoCapitalize="words"
+                  editable={!isLoading}
                 />
               </View>
               {errors.fullName && <Text style={styles.errorText}>{errors.fullName}</Text>}
@@ -133,10 +193,12 @@ export default function RegisterBasicInfoScreen({ onNext }: Props) {
                   onChangeText={(text) => {
                     setFormData({ ...formData, email: text });
                     if (errors.email) setErrors({ ...errors, email: undefined });
+                    setApiError(null);
                   }}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
+                  editable={!isLoading}
                 />
               </View>
               {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
@@ -154,12 +216,15 @@ export default function RegisterBasicInfoScreen({ onNext }: Props) {
                   onChangeText={(text) => {
                     setFormData({ ...formData, password: text });
                     if (errors.password) setErrors({ ...errors, password: undefined });
+                    setApiError(null);
                   }}
                   secureTextEntry={!showPassword}
+                  editable={!isLoading}
                 />
                 <TouchableOpacity
                   onPress={() => setShowPassword(!showPassword)}
                   style={styles.eyeIcon}
+                  disabled={isLoading}
                 >
                   {showPassword ? (
                     <EyeOff size={20} color="#6B7280" />
@@ -183,12 +248,15 @@ export default function RegisterBasicInfoScreen({ onNext }: Props) {
                   onChangeText={(text) => {
                     setFormData({ ...formData, confirmPassword: text });
                     if (errors.confirmPassword) setErrors({ ...errors, confirmPassword: undefined });
+                    setApiError(null);
                   }}
                   secureTextEntry={!showConfirmPassword}
+                  editable={!isLoading}
                 />
                 <TouchableOpacity
                   onPress={() => setShowConfirmPassword(!showConfirmPassword)}
                   style={styles.eyeIcon}
+                  disabled={isLoading}
                 >
                   {showConfirmPassword ? (
                     <EyeOff size={20} color="#6B7280" />
@@ -199,16 +267,38 @@ export default function RegisterBasicInfoScreen({ onNext }: Props) {
               </View>
               {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
             </View>
+
+            {/* Referral Code (Optional) */}
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Kode Referral (Opsional)</Text>
+              <View style={styles.inputWrapper}>
+                <Gift size={20} color="#6B7280" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Masukkan kode referral"
+                  value={formData.referralCode}
+                  onChangeText={(text) => {
+                    setFormData({ ...formData, referralCode: text.toUpperCase() });
+                  }}
+                  autoCapitalize="characters"
+                  editable={!isLoading}
+                />
+              </View>
+              <Text style={styles.hintText}>Punya kode dari teman? Masukkan di sini</Text>
+            </View>
           </View>
 
           {/* Next Button */}
           <TouchableOpacity
-            style={styles.nextButton}
+            style={[styles.nextButton, isLoading && styles.nextButtonDisabled]}
             onPress={handleNext}
             disabled={isLoading}
           >
             {isLoading ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator color="#FFFFFF" size="small" />
+                <Text style={styles.loadingText}>Membuat akun...</Text>
+              </View>
             ) : (
               <>
                 <Text style={styles.nextButtonText}>Lanjutkan</Text>
@@ -220,7 +310,7 @@ export default function RegisterBasicInfoScreen({ onNext }: Props) {
           {/* Login Link */}
           <View style={styles.loginContainer}>
             <Text style={styles.loginText}>Sudah punya akun? </Text>
-            <TouchableOpacity>
+            <TouchableOpacity disabled={isLoading}>
               <Text style={styles.loginLink}>Masuk</Text>
             </TouchableOpacity>
           </View>
@@ -242,6 +332,15 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     padding: 24,
   },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
   header: {
     marginBottom: 24,
   },
@@ -258,7 +357,7 @@ const styles = StyleSheet.create({
   progressContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 24,
     gap: 12,
   },
   progressBar: {
@@ -277,6 +376,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6B7280',
     fontWeight: '600',
+  },
+  apiErrorContainer: {
+    backgroundColor: '#FEE2E2',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    marginBottom: 16,
+  },
+  apiErrorText: {
+    color: '#DC2626',
+    fontSize: 14,
+    textAlign: 'center',
   },
   form: {
     gap: 16,
@@ -320,6 +432,11 @@ const styles = StyleSheet.create({
     color: '#EF4444',
     marginTop: 4,
   },
+  hintText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginTop: 4,
+  },
   nextButton: {
     backgroundColor: '#10B981',
     flexDirection: 'row',
@@ -330,10 +447,23 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 16,
   },
+  nextButtonDisabled: {
+    opacity: 0.7,
+  },
   nextButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  loadingText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
   loginContainer: {
     flexDirection: 'row',

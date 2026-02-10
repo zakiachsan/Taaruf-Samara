@@ -1,12 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StatusBar } from 'expo-status-bar';
-import { View, Text, StyleSheet, Alert } from 'react-native';
+import { View, Text, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { Home, Heart, MessageCircle, User } from 'lucide-react-native';
 
+// Import Auth
+import { AuthProvider, useAuth } from './src/context/AuthContext';
+
 // Import Screens
+import LoginScreen from './src/screens/LoginScreen';
 import RegisterBasicInfoScreen from './src/screens/RegisterBasicInfoScreen';
 import RegisterOTPScreen from './src/screens/RegisterOTPScreen';
 import RegisterPhotoScreen from './src/screens/RegisterPhotoScreen';
@@ -22,6 +26,7 @@ import BlockListScreen from './src/screens/BlockListScreen';
 import ReferralScreen from './src/screens/ReferralScreen';
 import BannerCMS from './src/screens/admin/BannerCMS';
 import SelfValueScreen from './src/screens/SelfValueScreen';
+import ProfileScreen from './src/screens/ProfileScreen';
 
 // Types
 export type RootStackParamList = {
@@ -37,6 +42,7 @@ export type RootStackParamList = {
 };
 
 export type AuthStackParamList = {
+  Login: undefined;
   BasicInfo: undefined;
   OTP: { email: string };
   Photo: undefined;
@@ -66,14 +72,6 @@ function MatchesScreen() {
   );
 }
 
-function ProfileScreen() {
-  return (
-    <View style={styles.placeholder}>
-      <Text style={styles.placeholderText}>My Profile Screen</Text>
-    </View>
-  );
-}
-
 function SuccessScreen({ navigation }: any) {
   return (
     <View style={styles.successContainer}>
@@ -94,8 +92,9 @@ function SuccessScreen({ navigation }: any) {
 }
 
 // Auth Navigator
-function AuthNavigator({ onAuthComplete }: { onAuthComplete: () => void }) {
+function AuthNavigator() {
   const [registrationData, setRegistrationData] = useState<any>({});
+  const { signIn } = useAuth();
 
   const updateData = (step: string, data: any) => {
     setRegistrationData((prev: any) => ({
@@ -111,13 +110,27 @@ function AuthNavigator({ onAuthComplete }: { onAuthComplete: () => void }) {
         animation: 'slide_from_right',
       }}
     >
+      <AuthStack.Screen name="Login">
+        {({ navigation }) => (
+          <LoginScreen
+            onLogin={async (email, password) => {
+              await signIn(email, password);
+              // Navigation handled automatically by AuthContext
+            }}
+            onRegister={() => navigation.navigate('BasicInfo')}
+          />
+        )}
+      </AuthStack.Screen>
+
       <AuthStack.Screen name="BasicInfo">
         {({ navigation }) => (
           <RegisterBasicInfoScreen
             onNext={(data) => {
               updateData('basicInfo', data);
+              // User created in Supabase, now continue with OTP verification
               navigation.navigate('OTP', { email: data.email });
             }}
+            onBack={() => navigation.goBack()}
           />
         )}
       </AuthStack.Screen>
@@ -230,24 +243,25 @@ function MainTabNavigator({ onNavigate }: { onNavigate: (screen: string, params?
           tabBarIcon: ({ color, size }) => <MessageCircle size={size} color={color} />,
         }}
       >
-        {() => <ChatListScreen onChatPress={(chatId) => console.log('Chat pressed:', chatId)} />}
+        {() => <ChatListScreen onChatPress={(chatId) => onNavigate('ChatRoom', { chatId })} />}
       </MainTab.Screen>
 
       <MainTab.Screen
         name="Profile"
-        component={ProfileScreen}
         options={{
           tabBarLabel: 'Profil',
           tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
         }}
-      />
+      >
+        {() => <ProfileScreen onNavigate={onNavigate} />}
+      </MainTab.Screen>
     </MainTab.Navigator>
   );
 }
 
-// Main App
-export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+// Main App Content
+function AppContent() {
+  const { user, loading } = useAuth();
   const [profileParams, setProfileParams] = useState<any>(null);
 
   const handleNavigate = (screen: string, params?: any) => {
@@ -256,17 +270,22 @@ export default function App() {
     }
   };
 
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#10B981" />
+        <Text style={styles.loadingText}>Loading...</Text>
+      </View>
+    );
+  }
+
   return (
     <NavigationContainer>
       <StatusBar style="dark" />
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
-        {!isAuthenticated ? (
+        {!user ? (
           <RootStack.Screen name="Auth">
-            {() => (
-              <AuthNavigator 
-                onAuthComplete={() => setIsAuthenticated(true)} 
-              />
-            )}
+            {() => <AuthNavigator />}
           </RootStack.Screen>
         ) : (
           <>
@@ -417,4 +436,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#9CA3AF',
   },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#6B7280',
+  },
 });
+
+// Main App with AuthProvider
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
+}

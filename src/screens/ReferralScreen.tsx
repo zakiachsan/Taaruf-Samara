@@ -5,128 +5,139 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  TextInput,
   SafeAreaView,
+  Share,
   Alert,
-  Clipboard,
+  ActivityIndicator,
+  RefreshControl,
+  Image,
+  TextInput,
+  Modal,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import {
   ChevronLeft,
-  Share2,
-  Copy,
   Gift,
   Users,
   Wallet,
-  ArrowRight,
-  Check,
-  Info,
+  Copy,
+  Share2,
+  ChevronRight,
+  Clock,
+  CheckCircle,
+  X,
+  CreditCard,
 } from 'lucide-react-native';
-
-interface ReferralStats {
-  totalInvited: number;
-  successfulReferrals: number;
-  pendingReferrals: number;
-  totalEarnings: number;
-  withdrawableAmount: number;
-}
-
-interface ReferralHistory {
-  id: string;
-  name: string;
-  date: string;
-  status: 'pending' | 'success';
-  reward: number;
-}
-
-const MY_REFERRAL_CODE = 'TAARUF2024';
-
-const REFERRAL_LINK = 'https://taarufsamara.id/ref/TAARUF2024';
-
-const MOCK_STATS: ReferralStats = {
-  totalInvited: 12,
-  successfulReferrals: 5,
-  pendingReferrals: 7,
-  totalEarnings: 50000,
-  withdrawableAmount: 50000,
-};
-
-const MOCK_HISTORY: ReferralHistory[] = [
-  { id: '1', name: 'Ahmad Fauzi', date: '2 hari lalu', status: 'success', reward: 10000 },
-  { id: '2', name: 'Budi Santoso', date: '3 hari lalu', status: 'success', reward: 10000 },
-  { id: '3', name: 'Dewi Kartika', date: '5 hari lalu', status: 'success', reward: 10000 },
-  { id: '4', name: 'Fatimah Zahra', date: '1 minggu lalu', status: 'pending', reward: 0 },
-  { id: '5', name: 'Rina Susanti', date: '1 minggu lalu', status: 'success', reward: 10000 },
-];
+import { useReferral } from '../hooks/useReferral';
 
 interface Props {
   onBack: () => void;
-  onWithdraw: () => void;
+  onWithdraw?: () => void;
 }
 
-export default function ReferralScreen({ onBack, onWithdraw }: Props) {
-  const [referralCode, setReferralCode] = useState('');
-  const [codeApplied, setCodeApplied] = useState(false);
-  const [showInput, setShowInput] = useState(false);
+const COMMISSION_AMOUNT = 10000; // Rp 10,000 per successful referral
 
-  const copyToClipboard = (text: string, label: string) => {
-    Clipboard.setString(text);
-    Alert.alert('Tersalin', `${label} telah disalin ke clipboard`);
+export default function ReferralScreen({ onBack }: Props) {
+  const {
+    referralCode,
+    stats,
+    availableBalance,
+    referralHistory,
+    loading,
+    refetch,
+    requestWithdrawal,
+  } = useReferral();
+
+  const [refreshing, setRefreshing] = useState(false);
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [bankName, setBankName] = useState('');
+  const [accountNumber, setAccountNumber] = useState('');
+  const [accountName, setAccountName] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const referralLink = `https://taarufsamara.com/join?ref=${referralCode}`;
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
   };
 
-  const shareReferral = () => {
-    Alert.alert(
-      'Bagikan Kode Referral',
-      'Pilih metode berbagi',
-      [
-        { text: 'Salin Link', onPress: () => copyToClipboard(REFERRAL_LINK, 'Link referral') },
-        { text: 'Salin Kode', onPress: () => copyToClipboard(MY_REFERRAL_CODE, 'Kode referral') },
-        { text: 'Batal', style: 'cancel' },
-      ]
-    );
+  const handleCopyCode = () => {
+    // Note: In real app, use expo-clipboard package
+    // For now just show alert with the code
+    Alert.alert('Kode Referral', referralCode, [
+      { text: 'OK' }
+    ]);
   };
 
-  const applyReferralCode = () => {
-    if (!referralCode.trim()) {
-      Alert.alert('Error', 'Masukkan kode referral');
+  const handleShare = async () => {
+    try {
+      await Share.share({
+        message: `Bergabunglah dengan Taaruf Samara! Gunakan kode referral saya: ${referralCode}\n\n${referralLink}`,
+        title: 'Ajak Teman ke Taaruf Samara',
+      });
+    } catch (error: any) {
+      console.error('Error sharing:', error);
+    }
+  };
+
+  const handleWithdraw = async () => {
+    if (!withdrawAmount || !bankName || !accountNumber || !accountName) {
+      Alert.alert('Perhatian', 'Lengkapi semua data penarikan');
       return;
     }
 
-    // Mock validation
-    if (referralCode.toUpperCase() === MY_REFERRAL_CODE) {
-      Alert.alert('Error', 'Anda tidak bisa menggunakan kode sendiri');
+    const amount = parseInt(withdrawAmount);
+    if (isNaN(amount) || amount < 50000) {
+      Alert.alert('Perhatian', 'Minimum penarikan Rp 50.000');
       return;
     }
 
-    // Simulate API call
-    Alert.alert(
-      'Kode Berhasil Digunakan',
-      `Anda menggunakan kode ${referralCode.toUpperCase()}. Bonus akan diberikan setelah berlangganan.`,
-      [{ text: 'OK', onPress: () => {
-        setCodeApplied(true);
-        setShowInput(false);
-      }}]
-    );
-  };
-
-  const handleWithdraw = () => {
-    if (MOCK_STATS.withdrawableAmount < 50000) {
-      Alert.alert(
-        'Minimal Withdraw',
-        'Minimal penarikan adalah Rp 50.000'
-      );
+    if (amount > availableBalance) {
+      Alert.alert('Perhatian', 'Saldo tidak mencukupi');
       return;
     }
 
-    Alert.alert(
-      'Konfirmasi Penarikan',
-      `Anda akan menarik Rp ${MOCK_STATS.withdrawableAmount.toLocaleString('id-ID')} ke rekening Anda?`,
-      [
-        { text: 'Batal', style: 'cancel' },
-        { text: 'Tarik', onPress: onWithdraw },
-      ]
-    );
+    setIsSubmitting(true);
+    try {
+      await requestWithdrawal(amount, bankName, accountNumber, accountName);
+      setShowWithdrawModal(false);
+      setWithdrawAmount('');
+      setBankName('');
+      setAccountNumber('');
+      setAccountName('');
+      Alert.alert('Berhasil', 'Permintaan penarikan berhasil dikirim');
+    } catch (error: any) {
+      Alert.alert('Gagal', error.message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  const formatCurrency = (amount: number) => {
+    return `Rp ${amount.toLocaleString('id-ID')}`;
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('id-ID', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+  };
+
+  if (loading && referralHistory.length === 0) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#10B981" />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -137,202 +148,221 @@ export default function ReferralScreen({ onBack, onWithdraw }: Props) {
         <TouchableOpacity style={styles.backBtn} onPress={onBack}>
           <ChevronLeft size={28} color="#111827" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Referral</Text>
+        <Text style={styles.headerTitle}>Program Referral</Text>
         <View style={{ width: 44 }} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Info Banner */}
-        <View style={styles.infoBanner}>
-          <Gift size={32} color="#F59E0B" />
-          <View style={styles.infoTextContainer}>
-            <Text style={styles.infoTitle}>Dapatkan Rp 10.000!</Text>
-            <Text style={styles.infoSubtitle}>
-              Ajak teman berlangganan Basic (Rp 50.000) dan dapatkan komisi 20%
-            </Text>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#10B981" />
+        }
+      >
+        {/* Hero Card */}
+        <View style={styles.heroCard}>
+          <View style={styles.heroIcon}>
+            <Gift size={40} color="#6366F1" />
           </View>
-        </View>
-
-        {/* My Referral Code */}
-        <View style={styles.codeSection}>
-          <Text style={styles.sectionLabel}>Kode Referral Anda</Text>
-          <View style={styles.codeContainer}>
-            <Text style={styles.codeText}>{MY_REFERRAL_CODE}</Text>
-            <View style={styles.codeActions}>
-              <TouchableOpacity
-                style={styles.actionBtn}
-                onPress={() => copyToClipboard(MY_REFERRAL_CODE, 'Kode')}
-              >
-                <Copy size={20} color="#6B7280" />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.actionBtn, styles.shareBtn]}
-                onPress={shareReferral}
-              >
-                <Share2 size={20} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
-          </View>
-          <Text style={styles.linkText}>{REFERRAL_LINK}</Text>
-        </View>
-
-        {/* Stats Cards */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <Users size={24} color="#6366F1" />
-            <Text style={styles.statNumber}>{MOCK_STATS.totalInvited}</Text>
-            <Text style={styles.statLabel}>Total Diundang</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Check size={24} color="#10B981" />
-            <Text style={styles.statNumber}>{MOCK_STATS.successfulReferrals}</Text>
-            <Text style={styles.statLabel}>Berhasil</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Wallet size={24} color="#F59E0B" />
-            <Text style={styles.statNumber}>
-              Rp {MOCK_STATS.totalEarnings.toLocaleString('id-ID')}
-            </Text>
-            <Text style={styles.statLabel}>Total Komisi</Text>
-          </View>
-        </View>
-
-        {/* Withdraw Card */}
-        <View style={styles.withdrawCard}>
-          <View style={styles.withdrawHeader}>
-            <Wallet size={24} color="#10B981" />
-            <Text style={styles.withdrawTitle}>Saldo Tersedia</Text>
-          </View>
-          <Text style={styles.balanceText}>
-            Rp {MOCK_STATS.withdrawableAmount.toLocaleString('id-ID')}
+          <Text style={styles.heroTitle}>Ajak Teman, Dapat Komisi!</Text>
+          <Text style={styles.heroSubtitle}>
+            Dapatkan {formatCurrency(COMMISSION_AMOUNT)} untuk setiap teman yang berlangganan Basic
           </Text>
-          <Text style={styles.minWithdraw}>
-            Minimal penarikan: Rp 50.000
-          </Text>
-          <TouchableOpacity
-            style={[
-              styles.withdrawBtn,
-              MOCK_STATS.withdrawableAmount < 50000 && styles.withdrawBtnDisabled,
-            ]}
-            onPress={handleWithdraw}
-            disabled={MOCK_STATS.withdrawableAmount < 50000}
-          >
-            <Text style={styles.withdrawBtnText}>Tarik Saldo</Text>
-            <ArrowRight size={18} color="#FFFFFF" />
+        </View>
+
+        {/* Referral Code */}
+        <View style={styles.codeCard}>
+          <Text style={styles.codeLabel}>Kode Referral Anda</Text>
+          <View style={styles.codeBox}>
+            <Text style={styles.codeText}>{referralCode || '---'}</Text>
+            <TouchableOpacity style={styles.copyBtn} onPress={handleCopyCode}>
+              <Copy size={20} color="#6366F1" />
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity style={styles.shareBtn} onPress={handleShare}>
+            <Share2 size={20} color="#FFFFFF" />
+            <Text style={styles.shareBtnText}>Bagikan ke Teman</Text>
           </TouchableOpacity>
         </View>
 
-        {/* How it Works */}
-        <View style={styles.howItWorks}>
-          <Text style={styles.sectionTitle}>Cara Kerja</Text>
-          <View style={styles.steps}>
-            <View style={styles.step}>
-              <View style={styles.stepNumber}>
-                <Text style={styles.stepNumberText}>1</Text>
-              </View>
-              <View style={styles.stepContent}>
-                <Text style={styles.stepTitle}>Bagikan Kode</Text>
-                <Text style={styles.stepDesc}>
-                  Bagikan kode referral Anda ke teman melalui WhatsApp, Instagram, atau media sosial
-                </Text>
-              </View>
+        {/* Stats */}
+        <View style={styles.statsContainer}>
+          <View style={styles.statCard}>
+            <View style={[styles.statIcon, { backgroundColor: '#E0E7FF' }]}>
+              <Users size={20} color="#6366F1" />
             </View>
-            <View style={styles.step}>
-              <View style={styles.stepNumber}>
-                <Text style={styles.stepNumberText}>2</Text>
-              </View>
-              <View style={styles.stepContent}>
-                <Text style={styles.stepTitle}>Teman Berlangganan</Text>
-                <Text style={styles.stepDesc}>
-                  Teman Anda mendaftar dan berlangganan Basic (Rp 50.000)
-                </Text>
-              </View>
+            <Text style={styles.statNumber}>{stats.totalReferrals}</Text>
+            <Text style={styles.statLabel}>Total Referral</Text>
+          </View>
+          <View style={styles.statCard}>
+            <View style={[styles.statIcon, { backgroundColor: '#D1FAE5' }]}>
+              <CheckCircle size={20} color="#10B981" />
             </View>
-            <View style={styles.step}>
-              <View style={styles.stepNumber}>
-                <Text style={styles.stepNumberText}>3</Text>
-              </View>
-              <View style={styles.stepContent}>
-                <Text style={styles.stepTitle}>Dapatkan Komisi</Text>
-                <Text style={styles.stepDesc}>
-                  Anda mendapatkan Rp 10.000 (20%) setiap teman berhasil berlangganan
-                </Text>
-              </View>
+            <Text style={styles.statNumber}>{stats.successfulReferrals}</Text>
+            <Text style={styles.statLabel}>Berhasil</Text>
+          </View>
+          <View style={styles.statCard}>
+            <View style={[styles.statIcon, { backgroundColor: '#FEF3C7' }]}>
+              <Clock size={20} color="#F59E0B" />
             </View>
+            <Text style={styles.statNumber}>{stats.pendingReferrals}</Text>
+            <Text style={styles.statLabel}>Pending</Text>
+          </View>
+        </View>
+
+        {/* Earnings Card */}
+        <View style={styles.earningsCard}>
+          <View style={styles.earningsRow}>
+            <View>
+              <Text style={styles.earningsLabel}>Saldo Tersedia</Text>
+              <Text style={styles.earningsAmount}>{formatCurrency(availableBalance)}</Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.withdrawBtn, availableBalance < 50000 && styles.withdrawBtnDisabled]}
+              onPress={() => setShowWithdrawModal(true)}
+              disabled={availableBalance < 50000}
+            >
+              <Wallet size={18} color="#FFFFFF" />
+              <Text style={styles.withdrawBtnText}>Tarik</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.earningsDetails}>
+            <Text style={styles.detailText}>
+              Total Pendapatan: {formatCurrency(stats.totalEarnings)}
+            </Text>
+            <Text style={styles.detailText}>
+              Sudah Ditarik: {formatCurrency(stats.withdrawnAmount)}
+            </Text>
+            {stats.pendingWithdrawal > 0 && (
+              <Text style={styles.detailTextPending}>
+                Dalam Proses: {formatCurrency(stats.pendingWithdrawal)}
+              </Text>
+            )}
           </View>
         </View>
 
         {/* History */}
         <View style={styles.historySection}>
           <Text style={styles.sectionTitle}>Riwayat Referral</Text>
-          {MOCK_HISTORY.map((item) => (
-            <View key={item.id} style={styles.historyItem}>
-              <View style={styles.historyLeft}>
-                <Text style={styles.historyName}>{item.name}</Text>
-                <Text style={styles.historyDate}>{item.date}</Text>
-              </View>
-              <View style={styles.historyRight}>
-                {item.status === 'success' ? (
-                  <View style={styles.rewardBadge}>
-                    <Text style={styles.rewardText}>
-                      +Rp {item.reward.toLocaleString('id-ID')}
-                    </Text>
-                  </View>
+          {referralHistory.length === 0 ? (
+            <View style={styles.emptyHistory}>
+              <Text style={styles.emptyText}>Belum ada referral</Text>
+            </View>
+          ) : (
+            referralHistory.map((item) => (
+              <View key={item.id} style={styles.historyItem}>
+                {item.referred_photo ? (
+                  <Image source={{ uri: item.referred_photo }} style={styles.historyAvatar} />
                 ) : (
-                  <View style={styles.pendingBadge}>
-                    <Text style={styles.pendingText}>Menunggu</Text>
+                  <View style={[styles.historyAvatar, styles.avatarPlaceholder]}>
+                    <Text style={styles.avatarText}>{item.referred_name.charAt(0)}</Text>
                   </View>
                 )}
+                <View style={styles.historyInfo}>
+                  <Text style={styles.historyName}>{item.referred_name}</Text>
+                  <Text style={styles.historyDate}>{formatDate(item.created_at)}</Text>
+                </View>
+                <View style={styles.historyStatus}>
+                  {item.status === 'successful' ? (
+                    <>
+                      <Text style={styles.historyReward}>+{formatCurrency(item.reward_amount)}</Text>
+                      <CheckCircle size={16} color="#10B981" />
+                    </>
+                  ) : item.status === 'pending' ? (
+                    <View style={styles.pendingBadge}>
+                      <Clock size={14} color="#F59E0B" />
+                      <Text style={styles.pendingText}>Pending</Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.failedText}>Gagal</Text>
+                  )}
+                </View>
               </View>
-            </View>
-          ))}
+            ))
+          )}
         </View>
 
-        {/* Enter Referral Code */}
-        {!codeApplied && (
-          <View style={styles.inputSection}>
-            <Text style={styles.sectionTitle}>Punya Kode Referral?</Text>
-            {!showInput ? (
-              <TouchableOpacity
-                style={styles.showInputBtn}
-                onPress={() => setShowInput(true)}
-              >
-                <Text style={styles.showInputText}>Masukkan Kode</Text>
-                <ArrowRight size={18} color="#10B981" />
-              </TouchableOpacity>
-            ) : (
-              <View style={styles.inputContainer}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Masukkan kode referral"
-                  value={referralCode}
-                  onChangeText={setReferralCode}
-                  autoCapitalize="characters"
-                  maxLength={20}
-                />
-                <TouchableOpacity
-                  style={styles.applyBtn}
-                  onPress={applyReferralCode}
-                >
-                  <Text style={styles.applyBtnText}>Gunakan</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        )}
-
-        {codeApplied && (
-          <View style={styles.appliedBanner}>
-            <Check size={20} color="#10B981" />
-            <Text style={styles.appliedText}>
-              Kode {referralCode.toUpperCase()} berhasil digunakan!
-            </Text>
-          </View>
-        )}
-
-        {/* Bottom padding */}
-        <View style={{ height: 40 }} />
+        <View style={{ height: 100 }} />
       </ScrollView>
+
+      {/* Withdraw Modal */}
+      <Modal
+        visible={showWithdrawModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowWithdrawModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Tarik Saldo</Text>
+              <TouchableOpacity onPress={() => setShowWithdrawModal(false)}>
+                <X size={24} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.balanceInfo}>
+              Saldo tersedia: {formatCurrency(availableBalance)}
+            </Text>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Jumlah Penarikan</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Minimum Rp 50.000"
+                value={withdrawAmount}
+                onChangeText={setWithdrawAmount}
+                keyboardType="numeric"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Nama Bank</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Contoh: BCA, Mandiri, BNI"
+                value={bankName}
+                onChangeText={setBankName}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Nomor Rekening</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Nomor rekening tujuan"
+                value={accountNumber}
+                onChangeText={setAccountNumber}
+                keyboardType="numeric"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Nama Pemilik Rekening</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Nama sesuai rekening"
+                value={accountName}
+                onChangeText={setAccountName}
+              />
+            </View>
+
+            <TouchableOpacity
+              style={[styles.submitBtn, isSubmitting && styles.submitBtnDisabled]}
+              onPress={handleWithdraw}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <>
+                  <CreditCard size={20} color="#FFFFFF" />
+                  <Text style={styles.submitBtnText}>Ajukan Penarikan</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -340,20 +370,26 @@ export default function ReferralScreen({ onBack, onWithdraw }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F9FAFB',
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 16,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
   backBtn: {
     width: 44,
     height: 44,
-    borderRadius: 12,
+    borderRadius: 22,
     backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
@@ -363,155 +399,169 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#111827',
   },
-  infoBanner: {
-    flexDirection: 'row',
+  heroCard: {
+    backgroundColor: '#FFFFFF',
+    padding: 24,
     alignItems: 'center',
-    gap: 16,
-    backgroundColor: '#FFFBEB',
-    margin: 16,
-    padding: 20,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#FCD34D',
+    marginBottom: 16,
   },
-  infoTextContainer: {
-    flex: 1,
+  heroIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#E0E7FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
   },
-  infoTitle: {
-    fontSize: 18,
+  heroTitle: {
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#B45309',
-    marginBottom: 4,
+    color: '#111827',
+    marginBottom: 8,
   },
-  infoSubtitle: {
+  heroSubtitle: {
     fontSize: 14,
-    color: '#92400E',
-    lineHeight: 20,
+    color: '#6B7280',
+    textAlign: 'center',
   },
-  codeSection: {
-    paddingHorizontal: 16,
-    marginBottom: 24,
+  codeCard: {
+    backgroundColor: '#FFFFFF',
+    padding: 20,
+    marginHorizontal: 16,
+    borderRadius: 16,
+    marginBottom: 16,
   },
-  sectionLabel: {
+  codeLabel: {
     fontSize: 14,
-    fontWeight: '600',
     color: '#6B7280',
     marginBottom: 8,
   },
-  codeContainer: {
+  codeBox: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#F3F4F6',
-    borderRadius: 12,
     padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
   },
   codeText: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#111827',
+    color: '#6366F1',
     letterSpacing: 2,
   },
-  codeActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  actionBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
+  copyBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
   },
   shareBtn: {
-    backgroundColor: '#10B981',
-    borderColor: '#10B981',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#6366F1',
+    paddingVertical: 14,
+    borderRadius: 12,
   },
-  linkText: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: 8,
+  shareBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
   statsContainer: {
     flexDirection: 'row',
     paddingHorizontal: 16,
     gap: 12,
-    marginBottom: 24,
+    marginBottom: 16,
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
     padding: 16,
+    borderRadius: 12,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
+  },
+  statIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
   },
   statNumber: {
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#111827',
-    marginVertical: 8,
   },
   statLabel: {
     fontSize: 12,
     color: '#6B7280',
-    textAlign: 'center',
+    marginTop: 4,
   },
-  withdrawCard: {
-    backgroundColor: '#F0FDF4',
-    marginHorizontal: 16,
+  earningsCard: {
+    backgroundColor: '#FFFFFF',
     padding: 20,
+    marginHorizontal: 16,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#10B981',
-    marginBottom: 24,
+    marginBottom: 16,
   },
-  withdrawHeader: {
+  earningsRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
+    marginBottom: 16,
   },
-  withdrawTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#065F46',
+  earningsLabel: {
+    fontSize: 14,
+    color: '#6B7280',
   },
-  balanceText: {
-    fontSize: 32,
+  earningsAmount: {
+    fontSize: 28,
     fontWeight: 'bold',
     color: '#10B981',
-    marginBottom: 4,
-  },
-  minWithdraw: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginBottom: 16,
   },
   withdrawBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
+    gap: 6,
     backgroundColor: '#10B981',
-    paddingVertical: 14,
-    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
   },
   withdrawBtnDisabled: {
     backgroundColor: '#D1D5DB',
   },
   withdrawBtnText: {
-    fontSize: 16,
-    fontWeight: 'bold',
     color: '#FFFFFF',
+    fontWeight: '600',
   },
-  howItWorks: {
-    paddingHorizontal: 16,
-    marginBottom: 24,
+  earningsDetails: {
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    paddingTop: 16,
+    gap: 4,
+  },
+  detailText: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  detailTextPending: {
+    fontSize: 14,
+    color: '#F59E0B',
+  },
+  historySection: {
+    backgroundColor: '#FFFFFF',
+    padding: 20,
+    marginHorizontal: 16,
+    borderRadius: 16,
   },
   sectionTitle: {
     fontSize: 18,
@@ -519,144 +569,136 @@ const styles = StyleSheet.create({
     color: '#111827',
     marginBottom: 16,
   },
-  steps: {
-    gap: 16,
-  },
-  step: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  stepNumber: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#10B981',
+  emptyHistory: {
+    padding: 24,
     alignItems: 'center',
-    justifyContent: 'center',
   },
-  stepNumberText: {
+  emptyText: {
+    color: '#9CA3AF',
     fontSize: 14,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  stepContent: {
-    flex: 1,
-  },
-  stepTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 4,
-  },
-  stepDesc: {
-    fontSize: 14,
-    color: '#6B7280',
-    lineHeight: 20,
-  },
-  historySection: {
-    paddingHorizontal: 16,
-    marginBottom: 24,
   },
   historyItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
-  historyLeft: {},
-  historyName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 2,
+  historyAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
   },
-  historyDate: {
-    fontSize: 13,
-    color: '#6B7280',
-  },
-  historyRight: {},
-  rewardBadge: {
-    backgroundColor: '#D1FAE5',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  rewardText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#065F46',
-  },
-  pendingBadge: {
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  pendingText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#92400E',
-  },
-  inputSection: {
-    paddingHorizontal: 16,
-  },
-  showInputBtn: {
-    flexDirection: 'row',
+  avatarPlaceholder: {
+    backgroundColor: '#6366F1',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F0FDF4',
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#10B981',
-  },
-  showInputText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#10B981',
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  input: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    backgroundColor: '#F9FAFB',
-  },
-  applyBtn: {
-    backgroundColor: '#10B981',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 12,
     justifyContent: 'center',
   },
-  applyBtnText: {
-    fontSize: 14,
+  avatarText: {
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#FFFFFF',
   },
-  appliedBanner: {
+  historyInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  historyName: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#111827',
+  },
+  historyDate: {
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
+  historyStatus: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#F0FDF4',
-    marginHorizontal: 16,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#10B981',
+    gap: 4,
   },
-  appliedText: {
+  historyReward: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#065F46',
+    color: '#10B981',
+  },
+  pendingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  pendingText: {
+    fontSize: 12,
+    color: '#D97706',
+  },
+  failedText: {
+    fontSize: 12,
+    color: '#EF4444',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: 40,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  balanceInfo: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 16,
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+    marginBottom: 6,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 16,
+  },
+  submitBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#10B981',
+    paddingVertical: 16,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  submitBtnDisabled: {
+    opacity: 0.7,
+  },
+  submitBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

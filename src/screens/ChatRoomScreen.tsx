@@ -4,242 +4,221 @@ import {
   Text,
   StyleSheet,
   FlatList,
-  TextInput,
   TouchableOpacity,
   Image,
+  SafeAreaView,
+  TextInput,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import {
-  ChevronLeft,
-  MoreVertical,
-  Send,
-  Phone,
-  Shield,
-  Info,
-} from 'lucide-react-native';
-
-interface Message {
-  id: string;
-  text: string;
-  sender: 'me' | 'them';
-  timestamp: string;
-  type: 'text' | 'introduction';
-}
+import { ChevronLeft, Send, MoreVertical, Phone, Video } from 'lucide-react-native';
+import { useChatRoom, useChatInfo, Message } from '../hooks/useChat';
+import { useAuth } from '../context/AuthContext';
 
 interface Props {
   chatId: string;
   onBack: () => void;
-  onViewProfile: () => void;
+  onViewProfile?: () => void;
 }
 
-// Mock Messages
-const MOCK_MESSAGES: Message[] = [
-  {
-    id: '1',
-    text: 'Assalamualaikum wr. wb.\n\nPerkenalkan, saya Ahmad Fauzi, 28 tahun, bekerja sebagai software engineer di Jakarta. Saya menemukan profil Anda di aplikasi ini dan tertarik untuk berkenalan dengan niat taaruf.\n\nMohon maaf mengganggu waktunya. Jika berkenan, saya ingin mengenal Anda lebih jauh.\n\nWassalamualaikum wr. wb.',
-    sender: 'them',
-    timestamp: '10:30',
-    type: 'introduction',
-  },
-  {
-    id: '2',
-    text: 'Waalaikumsalam wr. wb.\n\nTerima kasih telah menghubungi saya. Saya tertarik untuk berkenalan juga. Boleh ceritakan lebih banyak tentang diri Anda dan keluarga?',
-    sender: 'me',
-    timestamp: '10:45',
-    type: 'text',
-  },
-  {
-    id: '3',
-    text: 'Alhamdulillah, terima kasih atas responnya. Saya anak kedua dari 3 bersaudara. Ayah saya pensiunan PNS dan ibu saya ibu rumah tangga. Saya lulusan Teknik Informatika ITB dan saat ini bekerja di perusahaan startup.',
-    sender: 'them',
-    timestamp: '11:00',
-    type: 'text',
-  },
-];
-
-const INTRODUCTION_TEMPLATES = [
-  {
-    id: 'formal',
-    label: 'Formal',
-    text: 'Assalamualaikum wr. wb.\n\nPerkenalkan, saya [Nama], [Umur] tahun. Saya menemukan profil Anda dan tertarik untuk berkenalan dengan niat taaruf. Mohon maaf mengganggu waktunya.\n\nWassalamualaikum wr. wb.',
-  },
-  {
-    id: 'simple',
-    label: 'Sederhana',
-    text: 'Assalamualaikum, perkenalkan saya [Nama]. Saya ingin berkenalan dengan Anda. Terima kasih.',
-  },
-  {
-    id: 'detailed',
-    label: 'Detail',
-    text: 'Assalamualaikum wr. wb.\n\nPerkenalkan, saya [Nama], [Umur] tahun, bekerja sebagai [Pekerjaan] di [Kota]. Saya menemukan profil Anda dan tertarik untuk berkenalan lebih jauh dengan niat baik.\n\nMohon maaf mengganggu waktunya. Semoga Allah memberkahi langkah kita.\n\nWassalamualaikum wr. wb.',
-  },
-];
-
 export default function ChatRoomScreen({ chatId, onBack, onViewProfile }: Props) {
-  const [messages, setMessages] = useState<Message[]>(MOCK_MESSAGES);
+  const { user } = useAuth();
+  const { messages, loading, sending, error, sendMessage } = useChatRoom(chatId);
+  const { otherUser, loading: loadingInfo } = useChatInfo(chatId);
+  
   const [inputText, setInputText] = useState('');
-  const [showTemplates, setShowTemplates] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
-  // Scroll to bottom on mount
+  // Scroll to bottom when new messages arrive
   useEffect(() => {
-    setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: false });
-    }, 100);
-  }, []);
+    if (messages.length > 0) {
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  }, [messages.length]);
 
-  const sendMessage = () => {
-    if (!inputText.trim()) return;
+  const handleSend = async () => {
+    if (!inputText.trim() || sending) return;
 
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      text: inputText.trim(),
-      sender: 'me',
-      timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-      type: 'text',
-    };
-
-    setMessages([...messages, newMessage]);
+    const text = inputText.trim();
     setInputText('');
-    setShowTemplates(false);
 
-    // Scroll to bottom
-    setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: true });
-    }, 100);
+    try {
+      await sendMessage(text);
+    } catch (err: any) {
+      Alert.alert('Gagal', 'Tidak dapat mengirim pesan');
+      setInputText(text); // Restore text on error
+    }
   };
 
-  const useTemplate = (templateText: string) => {
-    setInputText(templateText);
-    setShowTemplates(false);
+  const formatMessageTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
   };
 
-  const renderMessage = ({ item }: { item: Message }) => {
-    const isMe = item.sender === 'me';
+  const formatDateHeader = (dateString: string) => {
+    const date = new Date(dateString);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) {
+      return 'Hari Ini';
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return 'Kemarin';
+    } else {
+      return date.toLocaleDateString('id-ID', { 
+        weekday: 'long', 
+        day: 'numeric', 
+        month: 'long' 
+      });
+    }
+  };
+
+  const shouldShowDateHeader = (index: number) => {
+    if (index === 0) return true;
+    
+    const currentDate = new Date(messages[index].created_at).toDateString();
+    const prevDate = new Date(messages[index - 1].created_at).toDateString();
+    
+    return currentDate !== prevDate;
+  };
+
+  const getAvatarUrl = () => {
+    if (otherUser?.photos && otherUser.photos.length > 0) {
+      return otherUser.photos[0];
+    }
+    return null;
+  };
+
+  const renderMessage = ({ item, index }: { item: Message; index: number }) => {
+    const isMe = item.sender_id === user?.id;
+    const showDateHeader = shouldShowDateHeader(index);
 
     return (
-      <View style={[styles.messageContainer, isMe ? styles.myMessage : styles.theirMessage]}>
-        {item.type === 'introduction' && !isMe && (
-          <View style={styles.introductionBadge}>
-            <Shield size={14} color="#10B981" />
-            <Text style={styles.introductionText}>Pesan Perkenalan</Text>
+      <View>
+        {showDateHeader && (
+          <View style={styles.dateHeader}>
+            <Text style={styles.dateHeaderText}>
+              {formatDateHeader(item.created_at)}
+            </Text>
           </View>
         )}
-        <View style={[styles.messageBubble, isMe ? styles.myBubble : styles.theirBubble]}>
-          <Text style={[styles.messageText, isMe ? styles.myMessageText : styles.theirMessageText]}>
-            {item.text}
-          </Text>
+        <View style={[styles.messageRow, isMe && styles.messageRowMe]}>
+          <View style={[styles.messageBubble, isMe ? styles.bubbleMe : styles.bubbleOther]}>
+            <Text style={[styles.messageText, isMe && styles.messageTextMe]}>
+              {item.content}
+            </Text>
+            <Text style={[styles.messageTime, isMe && styles.messageTimeMe]}>
+              {formatMessageTime(item.created_at)}
+            </Text>
+          </View>
         </View>
-        <Text style={styles.timestamp}>{item.timestamp}</Text>
       </View>
     );
   };
 
+  const avatarUrl = getAvatarUrl();
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
-      
+
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={onBack}>
           <ChevronLeft size={28} color="#111827" />
         </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.profileInfo} onPress={onViewProfile}>
-          <Image
-            source={{ uri: 'https://via.placeholder.com/100' }}
-            style={styles.headerAvatar}
-          />
-          <View style={styles.nameContainer}>
-            <Text style={styles.headerName}>Sarah Amalia</Text>
+
+        <TouchableOpacity style={styles.profileSection} onPress={onViewProfile}>
+          {avatarUrl ? (
+            <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+          ) : (
+            <View style={[styles.avatar, styles.avatarPlaceholder]}>
+              <Text style={styles.avatarText}>
+                {otherUser?.full_name?.charAt(0) || '?'}
+              </Text>
+            </View>
+          )}
+          <View style={styles.profileInfo}>
+            <Text style={styles.profileName} numberOfLines={1}>
+              {loadingInfo ? 'Loading...' : otherUser?.full_name || 'Pengguna'}
+            </Text>
             <Text style={styles.onlineStatus}>Online</Text>
           </View>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.moreBtn}>
-          <MoreVertical size={24} color="#374151" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Safety Notice */}
-      <View style={styles.safetyNotice}>
-        <Shield size={16} color="#6B7280" />
-        <Text style={styles.safetyText}>
-          Jaga kesopanan dalam berkomunikasi. Laporkan jika ada pelanggaran.
-        </Text>
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.actionBtn}>
+            <Phone size={22} color="#6B7280" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionBtn}>
+            <MoreVertical size={22} color="#6B7280" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Messages */}
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        keyExtractor={(item) => item.id}
-        renderItem={renderMessage}
-        contentContainerStyle={styles.messagesList}
-        showsVerticalScrollIndicator={false}
-      />
-
-      {/* Templates */}
-      {showTemplates && (
-        <View style={styles.templatesContainer}>
-          <View style={styles.templatesHeader}>
-            <Text style={styles.templatesTitle}>Template Pesan Perkenalan</Text>
-            <TouchableOpacity onPress={() => setShowTemplates(false)}>
-              <Text style={styles.closeTemplates}>Tutup</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.templateList}>
-            {INTRODUCTION_TEMPLATES.map((template) => (
-              <TouchableOpacity
-                key={template.id}
-                style={styles.templateItem}
-                onPress={() => useTemplate(template.text)}
-              >
-                <Text style={styles.templateLabel}>{template.label}</Text>
-                <Text style={styles.templatePreview} numberOfLines={2}>
-                  {template.text}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      )}
-
-      {/* Input Area */}
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.chatContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
-        <View style={styles.inputContainer}>
-          {/* Introduction Button */}
-          {!showTemplates && messages.length < 2 && (
-            <TouchableOpacity
-              style={styles.introBtn}
-              onPress={() => setShowTemplates(true)}
-            >
-              <Shield size={18} color="#10B981" />
-              <Text style={styles.introBtnText}>Template</Text>
-            </TouchableOpacity>
-          )}
-
-          <TextInput
-            style={styles.input}
-            placeholder="Ketik pesan..."
-            value={inputText}
-            onChangeText={setInputText}
-            multiline
-            maxLength={1000}
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#10B981" />
+          </View>
+        ) : error ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : messages.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyTitle}>Mulai Percakapan</Text>
+            <Text style={styles.emptyText}>
+              Kirim pesan pertama untuk memulai taaruf
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            renderItem={renderMessage}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.messagesList}
+            showsVerticalScrollIndicator={false}
+            onContentSizeChange={() => {
+              flatListRef.current?.scrollToEnd({ animated: false });
+            }}
           />
+        )}
 
+        {/* Input Area */}
+        <View style={styles.inputContainer}>
+          <View style={styles.inputWrapper}>
+            <TextInput
+              style={styles.input}
+              placeholder="Ketik pesan..."
+              value={inputText}
+              onChangeText={setInputText}
+              multiline
+              maxLength={1000}
+            />
+          </View>
           <TouchableOpacity
-            style={[styles.sendBtn, !inputText.trim() && styles.sendBtnDisabled]}
-            onPress={sendMessage}
-            disabled={!inputText.trim()}
+            style={[styles.sendBtn, (!inputText.trim() || sending) && styles.sendBtnDisabled]}
+            onPress={handleSend}
+            disabled={!inputText.trim() || sending}
           >
-            <Send size={20} color={inputText.trim() ? '#FFFFFF' : '#9CA3AF'} />
+            {sending ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Send size={22} color="#FFFFFF" />
+            )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -256,204 +235,181 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
-    paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
-    backgroundColor: '#FFFFFF',
   },
   backBtn: {
-    padding: 4,
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  profileInfo: {
+  profileSection: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 8,
+    marginLeft: 4,
   },
-  headerAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F3F4F6',
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
   },
-  nameContainer: {
+  avatarPlaceholder: {
+    backgroundColor: '#10B981',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  profileInfo: {
     marginLeft: 12,
+    flex: 1,
   },
-  headerName: {
+  profileName: {
     fontSize: 16,
     fontWeight: '600',
     color: '#111827',
   },
   onlineStatus: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#10B981',
   },
-  moreBtn: {
-    padding: 4,
-  },
-  safetyNotice: {
+  headerActions: {
     flexDirection: 'row',
+    gap: 8,
+  },
+  actionBtn: {
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 8,
-    backgroundColor: '#F9FAFB',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
   },
-  safetyText: {
-    fontSize: 12,
+  chatContainer: {
+    flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#EF4444',
+    textAlign: 'center',
+  },
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  emptyText: {
+    fontSize: 14,
     color: '#6B7280',
+    textAlign: 'center',
   },
   messagesList: {
     padding: 16,
     paddingBottom: 8,
   },
-  messageContainer: {
-    marginBottom: 16,
-    maxWidth: '85%',
-  },
-  myMessage: {
-    alignSelf: 'flex-end',
-    alignItems: 'flex-end',
-  },
-  theirMessage: {
-    alignSelf: 'flex-start',
-    alignItems: 'flex-start',
-  },
-  introductionBadge: {
-    flexDirection: 'row',
+  dateHeader: {
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 6,
-    backgroundColor: '#F0FDF4',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+    marginVertical: 16,
   },
-  introductionText: {
+  dateHeaderText: {
     fontSize: 12,
-    color: '#065F46',
-    fontWeight: '500',
+    color: '#9CA3AF',
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  messageRow: {
+    flexDirection: 'row',
+    marginBottom: 8,
+  },
+  messageRowMe: {
+    justifyContent: 'flex-end',
   },
   messageBubble: {
-    padding: 12,
-    borderRadius: 16,
-    maxWidth: '100%',
+    maxWidth: '75%',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 18,
   },
-  myBubble: {
-    backgroundColor: '#10B981',
-    borderBottomRightRadius: 4,
-  },
-  theirBubble: {
+  bubbleOther: {
     backgroundColor: '#F3F4F6',
     borderBottomLeftRadius: 4,
   },
+  bubbleMe: {
+    backgroundColor: '#10B981',
+    borderBottomRightRadius: 4,
+  },
   messageText: {
-    fontSize: 15,
+    fontSize: 16,
+    color: '#111827',
     lineHeight: 22,
   },
-  myMessageText: {
+  messageTextMe: {
     color: '#FFFFFF',
   },
-  theirMessageText: {
-    color: '#111827',
-  },
-  timestamp: {
+  messageTime: {
     fontSize: 11,
     color: '#9CA3AF',
     marginTop: 4,
+    alignSelf: 'flex-end',
   },
-  templatesContainer: {
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    maxHeight: 250,
-  },
-  templatesHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  templatesTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  closeTemplates: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  templateList: {
-    padding: 12,
-  },
-  templateItem: {
-    backgroundColor: '#F9FAFB',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  templateLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#10B981',
-    marginBottom: 4,
-  },
-  templatePreview: {
-    fontSize: 13,
-    color: '#6B7280',
+  messageTimeMe: {
+    color: 'rgba(255,255,255,0.7)',
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     padding: 12,
-    paddingHorizontal: 16,
-    backgroundColor: '#FFFFFF',
+    paddingBottom: Platform.OS === 'ios' ? 24 : 12,
     borderTopWidth: 1,
     borderTopColor: '#F3F4F6',
-    gap: 12,
+    backgroundColor: '#FFFFFF',
   },
-  introBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#F0FDF4',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#10B981',
-  },
-  introBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#10B981',
-  },
-  input: {
+  inputWrapper: {
     flex: 1,
     backgroundColor: '#F3F4F6',
-    borderRadius: 20,
+    borderRadius: 24,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    paddingTop: 10,
-    maxHeight: 100,
-    fontSize: 15,
+    marginRight: 8,
+    maxHeight: 120,
+  },
+  input: {
+    fontSize: 16,
     color: '#111827',
+    maxHeight: 100,
   },
   sendBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: '#10B981',
     alignItems: 'center',
     justifyContent: 'center',
   },
   sendBtnDisabled: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#D1D5DB',
   },
 });

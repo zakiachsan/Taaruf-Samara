@@ -5,12 +5,20 @@ export interface User {
   role: 'user' | 'admin' | 'moderator'
   is_verified: boolean
   created_at: string
+  profile?: UserProfile
+  subscription?: {
+    plan_type: 'basic' | 'premium'
+    status: 'active' | 'expired' | 'cancelled'
+    expires_at: string
+  }
 }
 
 export interface UserProfile {
   id: string
   user_id: string
+  full_name?: string
   age?: number
+  gender?: 'male' | 'female'
   religion?: string
   prayer_condition?: 'taat' | 'sedang'
   salary_range?: string
@@ -20,9 +28,11 @@ export interface UserProfile {
   photos?: string[]
   hobbies?: string[]
   interests?: string[]
-  is_premium: boolean
+  referral_code?: string
+  is_verified: boolean
   is_blurred: boolean
   created_at: string
+  updated_at: string
 }
 
 export interface PremiumSubscription {
@@ -61,11 +71,13 @@ export interface Banner {
   title: string
   subtitle?: string
   image_url: string
-  link_to: string
+  link_to?: string
   is_active: boolean
   display_order: number
   start_date?: string
   end_date?: string
+  created_at?: string
+  updated_at?: string
 }
 
 export interface SelfValueRegistration {
@@ -99,8 +111,30 @@ export interface BlockedUser {
 
 export interface ChatMessage {
   id: string
-  match_id: string
+  chat_id: string
   sender_id: string
   content: string
+  is_read: boolean
+  created_at: string
+}
+
+export interface Chat {
+  id: string
+  participant_ids: string[]
+  match_request_id?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ReferralWithdrawal {
+  id: string
+  user_id: string
+  amount: number
+  bank_name: string
+  account_number: string
+  account_name: string
+  status: 'pending' | 'processing' | 'completed' | 'rejected'
+  admin_notes?: string
+  processed_at?: string
   created_at: string
 }

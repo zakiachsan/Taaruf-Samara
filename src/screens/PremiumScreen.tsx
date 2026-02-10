@@ -158,7 +158,7 @@ export default function PremiumScreen({ onBack, hasBasicSubscription = false }: 
             <View style={[
               styles.selectionIndicator,
               selectedPlan === 'basic' && styles.selectionIndicatorActive
-            ]]}>
+            ]}>
               {selectedPlan === 'basic' && <Check size={20} color="#FFFFFF" />}
             </View>
           </TouchableOpacity>
@@ -241,7 +241,7 @@ export default function PremiumScreen({ onBack, hasBasicSubscription = false }: 
               styles.selectionIndicator,
               styles.premiumSelectionIndicator,
               selectedPlan === 'premium' && styles.premiumSelectionIndicatorActive
-            ]]}>
+            ]}>
               {selectedPlan === 'premium' && <Check size={20} color="#FFFFFF" />}
             </View>
           </TouchableOpacity>

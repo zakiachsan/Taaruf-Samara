@@ -21,6 +21,13 @@ interface PersonalInfoData {
   education: string;
 }
 
+interface FormErrors {
+  religion?: string;
+  prayerCondition?: string;
+  salary?: string;
+  education?: string;
+}
+
 interface Props {
   onNext: (data: PersonalInfoData) => void;
   onBack: () => void;
@@ -52,13 +59,13 @@ export default function RegisterPersonalInfoScreen({ onNext, onBack }: Props) {
     salary: '',
     education: '',
   });
-  const [errors, setErrors] = useState<Partial<PersonalInfoData>>({});
+  const [errors, setErrors] = useState<FormErrors>({});
   const [isLoading, setIsLoading] = useState(false);
   const [showReligionDropdown, setShowReligionDropdown] = useState(false);
   const [showEducationDropdown, setShowEducationDropdown] = useState(false);
 
   const validateForm = (): boolean => {
-    const newErrors: Partial<PersonalInfoData> = {};
+    const newErrors: FormErrors = {};
 
     if (!formData.religion) {
       newErrors.religion = 'Agama wajib dipilih';
