@@ -26,6 +26,7 @@ import BlockListScreen from './src/screens/BlockListScreen';
 import ReferralScreen from './src/screens/ReferralScreen';
 import BannerCMS from './src/screens/admin/BannerCMS';
 import SelfValueScreen from './src/screens/SelfValueScreen';
+import TaarufMaterialsScreen from './src/screens/TaarufMaterialsScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 
 // Types
@@ -39,6 +40,7 @@ export type RootStackParamList = {
   Referral: undefined;
   BannerCMS: undefined;
   SelfValue: undefined;
+  TaarufMaterials: undefined;
 };
 
 export type AuthStackParamList = {
@@ -316,6 +318,7 @@ function AppContent() {
                 <PremiumScreen
                   onBack={() => navigation.goBack()}
                   hasBasicSubscription={false}
+                  onViewMaterials={() => navigation.navigate('TaarufMaterials')}
                 />
               )}
             </RootStack.Screen>
@@ -377,6 +380,18 @@ function AppContent() {
                   onBack={() => navigation.goBack()}
                   onBook={() => Alert.alert('Booking', 'Sesi berhasil dibooking!')}
                   hasBasicSubscription={false}
+                />
+              )}
+            </RootStack.Screen>
+
+            <RootStack.Screen 
+              name="TaarufMaterials" 
+              options={{ animation: 'slide_from_right', headerShown: false }}
+            >
+              {({ navigation }) => (
+                <TaarufMaterialsScreen
+                  onBack={() => navigation.goBack()}
+                  onStartTaaruf={() => navigation.navigate('Premium')}
                 />
               )}
             </RootStack.Screen>

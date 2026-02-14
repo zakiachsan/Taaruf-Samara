@@ -24,6 +24,7 @@ import {
 interface Props {
   onBack: () => void;
   hasBasicSubscription?: boolean;
+  onViewMaterials?: () => void;
 }
 
 const BASIC_FEATURES = [
@@ -35,15 +36,15 @@ const BASIC_FEATURES = [
 ];
 
 const PREMIUM_FEATURES = [
-  'Semua fitur Basic',
-  '3x taaruf dengan pendampingan',
-  'Prioritas di daftar pencarian',
+  'Pendampingan Admin via WhatsApp',
+  '3x kesempatan pilih pasangan berbeda',
+  '3x pertemuan online via WA per pasangan',
+  '1x pertemuan offline saat Nadzor',
+  'Materi taaruf runut & diskusi aktif',
   'Badge Premium di profil',
-  'Konsultasi dengan admin',
-  'Sertifikasi self-value (opsional)',
 ];
 
-export default function PremiumScreen({ onBack, hasBasicSubscription = false }: Props) {
+export default function PremiumScreen({ onBack, hasBasicSubscription = false, onViewMaterials }: Props) {
   const [selectedPlan, setSelectedPlan] = useState<'basic' | 'premium' | null>(null);
 
   const handleSubscribe = () => {
@@ -235,6 +236,13 @@ export default function PremiumScreen({ onBack, hasBasicSubscription = false }: 
                 </View>
               ))}
             </View>
+
+            {/* View Materials Link */}
+            {onViewMaterials && (
+              <TouchableOpacity style={styles.viewMaterialsBtn} onPress={onViewMaterials}>
+                <Text style={styles.viewMaterialsText}>Lihat Detail Materi Taaruf →</Text>
+              </TouchableOpacity>
+            )}
 
             {/* Selection Indicator */}
             <View style={[
@@ -616,5 +624,15 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  viewMaterialsBtn: {
+    marginTop: 16,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  viewMaterialsText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#F59E0B',
   },
 });

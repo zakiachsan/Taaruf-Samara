@@ -41,23 +41,28 @@ const SERVICE_DETAILS = {
 const WHAT_YOU_GET = [
   {
     icon: 'profile',
-    title: 'Profil Diri Lengkap',
-    description: 'Analisis kepribadian, nilai, dan goals hidup Anda',
+    title: 'Kualitas Diri',
+    description: 'Mengetahui kelebihan dan potensi terbaik dalam diri Anda',
+  },
+  {
+    icon: 'shield',
+    title: 'Kesiapan Mental',
+    description: 'Evaluasi kesiapan mental untuk menjalani rumah tangga',
+  },
+  {
+    icon: 'heart',
+    title: 'Bagasi Emosi',
+    description: 'Identifikasi kekurangan, kesalahan masa lalu & bagasi emosi',
+  },
+  {
+    icon: 'target',
+    title: 'Kebutuhan Hidup',
+    description: 'Memahami kebutuhan dan prioritas dalam kehidupan Anda',
   },
   {
     icon: 'match',
-    title: 'Rekomendasi Pasangan',
-    description: 'Tipe calon pasangan yang paling cocok dengan Anda',
-  },
-  {
-    icon: 'guide',
-    title: 'Panduan Taaruf',
-    description: 'Tips dan strategi taaruf yang efektif',
-  },
-  {
-    icon: 'certificate',
-    title: 'Sertifikat',
-    description: 'Sertifikat Self-Value yang bisa ditampilkan di profil',
+    title: 'Kategori Jodoh Tepat',
+    description: 'Menentukan kriteria pasangan yang paling cocok untuk Anda',
   },
 ];
 
