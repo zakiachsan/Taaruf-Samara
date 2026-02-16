@@ -17,6 +17,7 @@ import RegisterPhotoScreen from './src/screens/RegisterPhotoScreen';
 import RegisterPersonalInfoScreen from './src/screens/RegisterPersonalInfoScreen';
 import RegisterHobbiesScreen from './src/screens/RegisterHobbiesScreen';
 import RegisterKTPScreen from './src/screens/RegisterKTPScreen';
+import RegisterPreferencesScreen from './src/screens/RegisterPreferencesScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import ProfileDetailScreen from './src/screens/ProfileDetailScreen';
 import PremiumScreen from './src/screens/PremiumScreen';
@@ -50,6 +51,7 @@ export type AuthStackParamList = {
   Photo: undefined;
   PersonalInfo: undefined;
   Hobbies: undefined;
+  Preferences: undefined;
   KTP: undefined;
   Success: undefined;
 };
@@ -176,9 +178,22 @@ function AuthNavigator() {
           <RegisterHobbiesScreen
             onNext={(hobbies, interests) => {
               updateData('hobbies', { hobbies, interests });
+              navigation.navigate('Preferences');
+            }}
+            onBack={() => navigation.goBack()}
+          />
+        )}
+      </AuthStack.Screen>
+
+      <AuthStack.Screen name="Preferences">
+        {({ navigation }) => (
+          <RegisterPreferencesScreen
+            onNext={(data) => {
+              updateData('preferences', data);
               navigation.navigate('KTP');
             }}
             onBack={() => navigation.goBack()}
+            gender={registrationData.basicInfo?.gender || 'male'}
           />
         )}
       </AuthStack.Screen>

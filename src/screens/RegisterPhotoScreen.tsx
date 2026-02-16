@@ -9,14 +9,16 @@ import {
   Image,
   ActivityIndicator,
   Alert,
+  TextInput,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { ChevronRight, ChevronLeft, Camera, User, Upload } from 'lucide-react-native';
+import { ChevronRight, ChevronLeft, Camera, User, Ruler, Scale } from 'lucide-react-native';
 
 interface PhotoData {
-  profilePhoto: string | null;
-  fullBodyPhoto: string | null;
-  selfiePhoto: string | null;
+  photoCloseup: string | null;
+  photoFullbody: string | null;
+  heightCm: string;
+  weightKg: string;
 }
 
 interface Props {
@@ -25,15 +27,17 @@ interface Props {
 }
 
 export default function RegisterPhotoScreen({ onNext, onBack }: Props) {
-  const [photos, setPhotos] = useState<PhotoData>({
-    profilePhoto: null,
-    fullBodyPhoto: null,
-    selfiePhoto: null,
+  const [data, setData] = useState<PhotoData>({
+    photoCloseup: null,
+    photoFullbody: null,
+    heightCm: '',
+    weightKg: '',
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   // Mock image picker - in real app use react-native-image-picker
-  const pickImage = (type: keyof PhotoData) => {
+  const pickImage = (type: 'photoCloseup' | 'photoFullbody') => {
     Alert.alert(
       'Pilih Foto',
       'Pilih sumber foto',
@@ -41,21 +45,25 @@ export default function RegisterPhotoScreen({ onNext, onBack }: Props) {
         {
           text: 'Kamera',
           onPress: () => {
-            // Mock - in real app open camera
-            setPhotos({
-              ...photos,
+            setData({
+              ...data,
               [type]: 'mock_camera_image',
             });
+            if (errors[type]) {
+              setErrors({ ...errors, [type]: '' });
+            }
           },
         },
         {
           text: 'Galeri',
           onPress: () => {
-            // Mock - in real app open gallery
-            setPhotos({
-              ...photos,
+            setData({
+              ...data,
               [type]: 'mock_gallery_image',
             });
+            if (errors[type]) {
+              setErrors({ ...errors, [type]: '' });
+            }
           },
         },
         {
@@ -66,36 +74,63 @@ export default function RegisterPhotoScreen({ onNext, onBack }: Props) {
     );
   };
 
-  const handleNext = async () => {
-    if (!photos.profilePhoto || !photos.fullBodyPhoto) {
-      Alert.alert('Foto Wajib', 'Foto profil dan foto sebadan wajib diupload');
-      return;
+  const validateForm = (): boolean => {
+    const newErrors: { [key: string]: string } = {};
+
+    if (!data.photoCloseup) {
+      newErrors.photoCloseup = 'Foto close up wajib diupload';
     }
+
+    if (!data.photoFullbody) {
+      newErrors.photoFullbody = 'Foto sebadan wajib diupload';
+    }
+
+    if (!data.heightCm) {
+      newErrors.heightCm = 'Tinggi badan wajib diisi';
+    } else if (parseInt(data.heightCm) < 100 || parseInt(data.heightCm) > 250) {
+      newErrors.heightCm = 'Tinggi badan tidak valid';
+    }
+
+    if (!data.weightKg) {
+      newErrors.weightKg = 'Berat badan wajib diisi';
+    } else if (parseInt(data.weightKg) < 30 || parseInt(data.weightKg) > 200) {
+      newErrors.weightKg = 'Berat badan tidak valid';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleNext = async () => {
+    if (!validateForm()) return;
 
     setIsLoading(true);
     await new Promise(resolve => setTimeout(resolve, 500));
     setIsLoading(false);
-    onNext(photos);
+    onNext(data);
   };
 
   const renderPhotoBox = (
-    type: keyof PhotoData,
+    type: 'photoCloseup' | 'photoFullbody',
     title: string,
     subtitle: string,
-    isRequired: boolean,
     icon: React.ReactNode
   ) => (
     <View style={styles.photoContainer}>
       <Text style={styles.photoLabel}>
-        {title} {isRequired && <Text style={styles.requiredStar}>*</Text>}
+        {title} <Text style={styles.requiredStar}>*</Text>
       </Text>
       <Text style={styles.photoSubtitle}>{subtitle}</Text>
       
       <TouchableOpacity
-        style={[styles.photoBox, photos[type] && styles.photoBoxFilled]}
+        style={[
+          styles.photoBox, 
+          data[type] && styles.photoBoxFilled,
+          errors[type] && styles.photoBoxError,
+        ]}
         onPress={() => pickImage(type)}
       >
-        {photos[type] ? (
+        {data[type] ? (
           <View style={styles.photoPreview}>
             <Image
               source={{ uri: 'https://via.placeholder.com/150' }}
@@ -113,6 +148,7 @@ export default function RegisterPhotoScreen({ onNext, onBack }: Props) {
           </View>
         )}
       </TouchableOpacity>
+      {errors[type] && <Text style={styles.errorText}>{errors[type]}</Text>}
     </View>
   );
 
@@ -122,7 +158,7 @@ export default function RegisterPhotoScreen({ onNext, onBack }: Props) {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Upload Foto</Text>
+          <Text style={styles.title}>Foto & Fisik</Text>
           <Text style={styles.subtitle}>Langkah 3 dari 6</Text>
         </View>
 
@@ -137,36 +173,77 @@ export default function RegisterPhotoScreen({ onNext, onBack }: Props) {
         {/* Photo Requirements Info */}
         <View style={styles.infoBox}>
           <Text style={styles.infoTitle}>Ketentuan Foto:</Text>
-          <Text style={styles.infoText}>• Foto wajah: Wajib (close up, terlihat jelas)</Text>
-          <Text style={styles.infoText}>• Foto sebadan: Wajib (full body, berdiri)</Text>
-          <Text style={styles.infoText}>• Foto selfie: Opsional (untuk verifikasi)</Text>
+          <Text style={styles.infoText}>• Foto close up: Wajah terlihat jelas, background polos</Text>
+          <Text style={styles.infoText}>• Foto sebadan: Full body, posisi berdiri</Text>
+          <Text style={styles.infoText}>• Pastikan foto tidak blur dan pencahayaan baik</Text>
         </View>
 
         {/* Photo Uploads */}
         <View style={styles.photosGrid}>
           {renderPhotoBox(
-            'profilePhoto',
-            'Foto Profil',
-            'Close up wajah, background polos',
-            true,
+            'photoCloseup',
+            'Foto Close Up',
+            'Wajah terlihat jelas, tanpa filter',
             <User size={40} color="#9CA3AF" />
           )}
 
           {renderPhotoBox(
-            'fullBodyPhoto',
+            'photoFullbody',
             'Foto Sebadan',
-            'Full body, berdiri tegak',
-            true,
-            <Upload size={40} color="#9CA3AF" />
+            'Full body dari kepala sampai kaki',
+            <User size={40} color="#9CA3AF" />
           )}
+        </View>
 
-          {renderPhotoBox(
-            'selfiePhoto',
-            'Foto Selfie',
-            'Verifikasi wajah (opsional)',
-            false,
-            <Camera size={40} color="#9CA3AF" />
-          )}
+        {/* Physical Info */}
+        <View style={styles.physicalSection}>
+          <Text style={styles.sectionTitle}>Informasi Fisik</Text>
+          
+          <View style={styles.physicalRow}>
+            {/* Height */}
+            <View style={styles.physicalField}>
+              <Text style={styles.physicalLabel}>
+                <Ruler size={14} color="#6B7280" /> Tinggi Badan *
+              </Text>
+              <View style={[styles.physicalInput, errors.heightCm && styles.inputError]}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="170"
+                  value={data.heightCm}
+                  onChangeText={(text) => {
+                    setData({ ...data, heightCm: text.replace(/[^0-9]/g, '') });
+                    if (errors.heightCm) setErrors({ ...errors, heightCm: '' });
+                  }}
+                  keyboardType="number-pad"
+                  maxLength={3}
+                />
+                <Text style={styles.unit}>cm</Text>
+              </View>
+              {errors.heightCm && <Text style={styles.errorText}>{errors.heightCm}</Text>}
+            </View>
+
+            {/* Weight */}
+            <View style={styles.physicalField}>
+              <Text style={styles.physicalLabel}>
+                <Scale size={14} color="#6B7280" /> Berat Badan *
+              </Text>
+              <View style={[styles.physicalInput, errors.weightKg && styles.inputError]}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="65"
+                  value={data.weightKg}
+                  onChangeText={(text) => {
+                    setData({ ...data, weightKg: text.replace(/[^0-9]/g, '') });
+                    if (errors.weightKg) setErrors({ ...errors, weightKg: '' });
+                  }}
+                  keyboardType="number-pad"
+                  maxLength={3}
+                />
+                <Text style={styles.unit}>kg</Text>
+              </View>
+              {errors.weightKg && <Text style={styles.errorText}>{errors.weightKg}</Text>}
+            </View>
+          </View>
         </View>
 
         {/* Buttons */}
@@ -177,9 +254,9 @@ export default function RegisterPhotoScreen({ onNext, onBack }: Props) {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.nextButton, (!photos.profilePhoto || !photos.fullBodyPhoto) && styles.nextButtonDisabled]}
+            style={styles.nextButton}
             onPress={handleNext}
-            disabled={(!photos.profilePhoto || !photos.fullBodyPhoto) || isLoading}
+            disabled={isLoading}
           >
             {isLoading ? (
               <ActivityIndicator color="#FFFFFF" />
@@ -261,11 +338,13 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   photosGrid: {
-    gap: 20,
+    flexDirection: 'row',
+    gap: 12,
     marginBottom: 24,
   },
   photoContainer: {
-    gap: 8,
+    flex: 1,
+    gap: 6,
   },
   photoLabel: {
     fontSize: 14,
@@ -276,12 +355,12 @@ const styles = StyleSheet.create({
     color: '#EF4444',
   },
   photoSubtitle: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#6B7280',
     marginBottom: 4,
   },
   photoBox: {
-    height: 180,
+    height: 200,
     borderWidth: 2,
     borderColor: '#D1D5DB',
     borderRadius: 12,
@@ -293,6 +372,9 @@ const styles = StyleSheet.create({
     borderStyle: 'solid',
     borderColor: '#10B981',
   },
+  photoBoxError: {
+    borderColor: '#EF4444',
+  },
   uploadContent: {
     flex: 1,
     alignItems: 'center',
@@ -300,9 +382,10 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   uploadText: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#6B7280',
     fontWeight: '500',
+    textAlign: 'center',
   },
   photoPreview: {
     flex: 1,
@@ -327,8 +410,59 @@ const styles = StyleSheet.create({
   },
   changeText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '500',
+  },
+  physicalSection: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 12,
+  },
+  physicalRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  physicalField: {
+    flex: 1,
+  },
+  physicalLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#374151',
+    marginBottom: 6,
+  },
+  physicalInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    height: 52,
+    backgroundColor: '#F9FAFB',
+  },
+  inputError: {
+    borderColor: '#EF4444',
+  },
+  input: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  unit: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginLeft: 4,
+  },
+  errorText: {
+    fontSize: 11,
+    color: '#EF4444',
+    marginTop: 4,
   },
   buttonContainer: {
     flexDirection: 'row',
@@ -359,9 +493,6 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 12,
     gap: 8,
-  },
-  nextButtonDisabled: {
-    backgroundColor: '#D1D5DB',
   },
   nextButtonText: {
     color: '#FFFFFF',

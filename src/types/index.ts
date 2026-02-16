@@ -20,7 +20,7 @@ export interface UserProfile {
   age?: number
   gender?: 'male' | 'female'
   religion?: string
-  prayer_condition?: 'taat' | 'sedang'
+  prayer_condition?: 'terjaga' | 'bolong'
   salary_range?: string
   education?: string
   location?: string
@@ -33,6 +33,24 @@ export interface UserProfile {
   is_blurred: boolean
   created_at: string
   updated_at: string
+  // New fields from profile enhancements
+  profession?: string
+  marriage_status?: 'lajang' | 'menikah' | 'cerai_hidup' | 'cerai_mati'
+  marriage_readiness?: 'sangat_siap' | 'siap' | 'cukup_siap'
+  marriage_target?: string
+  manhaj?: string
+  height_cm?: number
+  weight_kg?: number
+  photo_closeup?: string
+  photo_fullbody?: string
+  partner_pref_ethnicity?: string[]
+  partner_pref_hijab?: 'berhijab' | 'bercadar' | 'tidak_ada_preferensi'
+  has_bedah_value_cert?: boolean
+  bedah_value_cert_code?: string
+  referral_balance?: number
+  bank_name?: string
+  bank_account_number?: string
+  bank_account_name?: string
 }
 
 export interface PremiumSubscription {

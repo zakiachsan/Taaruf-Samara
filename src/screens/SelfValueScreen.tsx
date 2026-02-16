@@ -21,6 +21,9 @@ import {
   MessageCircle,
   Shield,
   ArrowRight,
+  Heart,
+  Target,
+  User,
 } from 'lucide-react-native';
 
 interface Props {
@@ -30,7 +33,7 @@ interface Props {
 }
 
 const SERVICE_DETAILS = {
-  title: 'Sertifikasi Self-Value',
+  title: 'Bedah Value',
   subtitle: 'Kenali Diri & Temukan Pasangan yang Cocok',
   price: 300000,
   duration: '3 jam',
@@ -64,6 +67,11 @@ const WHAT_YOU_GET = [
     title: 'Kategori Jodoh Tepat',
     description: 'Menentukan kriteria pasangan yang paling cocok untuk Anda',
   },
+  {
+    icon: 'certificate',
+    title: 'Sertifikat Bedah Value',
+    description: 'Sertifikat resmi yang menunjukkan Anda sudah ikut program',
+  },
 ];
 
 const SESSION_STEPS = [
@@ -83,7 +91,7 @@ const SESSION_STEPS = [
     step: 3,
     title: 'Rekomendasi & Sertifikat',
     duration: '60 menit',
-    description: 'Pembahasan hasil dan penerimaan sertifikat',
+    description: 'Pembahasan hasil dan penerimaan sertifikat Bedah Value',
   },
 ];
 
@@ -92,7 +100,7 @@ const TESTIMONIALS = [
     id: '1',
     name: 'Ahmad Fauzi',
     role: 'Software Engineer',
-    text: 'Sertifikasi ini sangat membantu saya memahami diri sendiri dan apa yang saya cari dalam pasangan. Alhamdulillah, saya sudah menemukan pasangan yang cocok.',
+    text: 'Bedah Value sangat membantu saya memahami diri sendiri dan apa yang saya cari dalam pasangan. Alhamdulillah, saya sudah menemukan pasangan yang cocok.',
     rating: 5,
   },
   {
@@ -121,7 +129,7 @@ export default function SelfValueScreen({ onBack, onBook, hasBasicSubscription =
     }
 
     Alert.alert(
-      'Booking Sertifikasi',
+      'Booking Bedah Value',
       `Anda akan booking ${SERVICE_DETAILS.title} seharga Rp ${SERVICE_DETAILS.price.toLocaleString('id-ID')}. Lanjutkan?`,
       [
         { text: 'Batal', style: 'cancel' },
@@ -140,6 +148,25 @@ export default function SelfValueScreen({ onBack, onBook, hasBasicSubscription =
     );
   };
 
+  const renderIcon = (iconName: string) => {
+    switch (iconName) {
+      case 'profile':
+        return <User size={24} color="#10B981" />;
+      case 'shield':
+        return <Shield size={24} color="#6366F1" />;
+      case 'heart':
+        return <Heart size={24} color="#EC4899" />;
+      case 'target':
+        return <Target size={24} color="#F59E0B" />;
+      case 'match':
+        return <Users size={24} color="#8B5CF6" />;
+      case 'certificate':
+        return <Award size={24} color="#14B8A6" />;
+      default:
+        return <Star size={24} color="#6B7280" />;
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
@@ -149,7 +176,7 @@ export default function SelfValueScreen({ onBack, onBook, hasBasicSubscription =
         <TouchableOpacity style={styles.backBtn} onPress={onBack}>
           <ChevronLeft size={28} color="#111827" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Self-Value</Text>
+        <Text style={styles.headerTitle}>Bedah Value</Text>
         <View style={{ width: 44 }} />
       </View>
 
@@ -196,10 +223,7 @@ export default function SelfValueScreen({ onBack, onBook, hasBasicSubscription =
             {WHAT_YOU_GET.map((item, index) => (
               <View key={index} style={styles.benefitCard}>
                 <View style={styles.benefitIcon}>
-                  {item.icon === 'profile' && <Users size={24} color="#10B981" />}
-                  {item.icon === 'match' && <Award size={24} color="#F59E0B" />}
-                  {item.icon === 'guide' && <MessageCircle size={24} color="#6366F1" />}
-                  {item.icon === 'certificate' && <Shield size={24} color="#EC4899" />}
+                  {renderIcon(item.icon)}
                 </View>
                 <Text style={styles.benefitTitle}>{item.title}</Text>
                 <Text style={styles.benefitDesc}>{item.description}</Text>
@@ -253,18 +277,18 @@ export default function SelfValueScreen({ onBack, onBook, hasBasicSubscription =
                 <Text style={styles.comparisonHeaderText}>Premium</Text>
                 <Text style={styles.comparisonPrice}>300rb</Text>
               </View>
-              <View style={[styles.comparisonCell, styles.comparisonHeader, styles.selfValueCol]}>
-                <Text style={styles.comparisonHeaderTextActive}>Self-Value</Text>
+              <View style={[styles.comparisonCell, styles.comparisonHeader, styles.bedahValueCol]}>
+                <Text style={styles.comparisonHeaderTextActive}>Bedah Value</Text>
                 <Text style={styles.comparisonPriceActive}>300rb</Text>
               </View>
             </View>
             
             {[
-              { feature: '3x Taaruf', premium: true, selfValue: false },
-              { feature: 'Pendampingan', premium: true, selfValue: true },
-              { feature: 'Profil Diri', premium: false, selfValue: true },
-              { feature: 'Rekomendasi Pasangan', premium: false, selfValue: true },
-              { feature: 'Sertifikat', premium: false, selfValue: true },
+              { feature: '3x Taaruf', premium: true, bedahValue: false },
+              { feature: 'Pendampingan', premium: true, bedahValue: true },
+              { feature: 'Profil Diri', premium: false, bedahValue: true },
+              { feature: 'Rekomendasi Pasangan', premium: false, bedahValue: true },
+              { feature: 'Sertifikat', premium: false, bedahValue: true },
             ].map((row, index) => (
               <View key={index} style={styles.comparisonRow}>
                 <View style={styles.comparisonCell}>
@@ -277,8 +301,8 @@ export default function SelfValueScreen({ onBack, onBook, hasBasicSubscription =
                     <Text style={styles.dash}>-</Text>
                   )}
                 </View>
-                <View style={[styles.comparisonCell, styles.selfValueCol]}>
-                  {row.selfValue ? (
+                <View style={[styles.comparisonCell, styles.bedahValueCol]}>
+                  {row.bedahValue ? (
                     <Check size={20} color="#F59E0B" />
                   ) : (
                     <Text style={styles.dash}>-</Text>
@@ -309,6 +333,32 @@ export default function SelfValueScreen({ onBack, onBook, hasBasicSubscription =
           ))}
         </View>
 
+        {/* Certificate Preview */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Sertifikat Bedah Value</Text>
+          <View style={styles.certificatePreview}>
+            <Award size={48} color="#F59E0B" />
+            <Text style={styles.certificateTitle}>Sertifikat Bedah Value</Text>
+            <Text style={styles.certificateDesc}>
+              Setelah menyelesaikan sesi, Anda akan mendapatkan sertifikat digital yang memuat hasil assessment dan rekomendasi pasangan.
+            </Text>
+            <View style={styles.certificateFeatures}>
+              <View style={styles.certFeature}>
+                <Check size={16} color="#10B981" />
+                <Text style={styles.certFeatureText}>Kode unik sertifikat</Text>
+              </View>
+              <View style={styles.certFeature}>
+                <Check size={16} color="#10B981" />
+                <Text style={styles.certFeatureText}>Dapat diverifikasi</Text>
+              </View>
+              <View style={styles.certFeature}>
+                <Check size={16} color="#10B981" />
+                <Text style={styles.certFeatureText}>Tampil di profil</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
         {/* FAQ Note */}
         <View style={styles.faqSection}>
           <Shield size={24} color="#10B981" />
@@ -327,7 +377,7 @@ export default function SelfValueScreen({ onBack, onBook, hasBasicSubscription =
           <Text style={styles.ctaPrice}>
             Rp {SERVICE_DETAILS.price.toLocaleString('id-ID')}
           </Text>
-          <Text style={styles.ctaNote}>Sekali bayar • 3 jam sesi</Text>
+          <Text style={styles.ctaNote}>Sekali bayar | 3 jam sesi</Text>
         </View>
         <TouchableOpacity style={styles.ctaButton} onPress={handleBook}>
           <Text style={styles.ctaButtonText}>Booking Sekarang</Text>
@@ -566,7 +616,7 @@ const styles = StyleSheet.create({
   premiumCol: {
     backgroundColor: '#F0FDF4',
   },
-  selfValueCol: {
+  bedahValueCol: {
     backgroundColor: '#FEF3C7',
   },
   comparisonPrice: {
@@ -637,6 +687,42 @@ const styles = StyleSheet.create({
     color: '#4B5563',
     lineHeight: 22,
     fontStyle: 'italic',
+  },
+  certificatePreview: {
+    backgroundColor: '#FFFBEB',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FCD34D',
+    borderStyle: 'dashed',
+  },
+  certificateTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#B45309',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  certificateDesc: {
+    fontSize: 13,
+    color: '#92400E',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  certificateFeatures: {
+    gap: 8,
+  },
+  certFeature: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  certFeatureText: {
+    fontSize: 13,
+    color: '#047857',
+    fontWeight: '500',
   },
   faqSection: {
     flexDirection: 'row',
